@@ -1,3 +1,4 @@
+from .driver import DeviceDriver, ElementRef
 from .models import (
     ActionType,
     ActionSpec,
@@ -13,6 +14,8 @@ from .models import (
 )
 
 __all__ = [
+    "DeviceDriver",
+    "ElementRef",
     "ActionType",
     "ActionSpec",
     "AssertionSpec",
