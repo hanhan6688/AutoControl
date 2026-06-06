@@ -164,3 +164,21 @@ class TestAutoGLMValidateCheckpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["passed"] is True
+
+
+class TestRunEvents:
+    def test_get_events_for_existing_run(self):
+        create_resp = client.post("/api/automation/runs", json={
+            "udid": "emulator-5554",
+            "platform": "android",
+            "steps": [],
+        })
+        run_id = create_resp.json()["run_id"]
+        resp = client.get(f"/api/automation/runs/{run_id}/events")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+
+    def test_get_events_for_nonexistent_run(self):
+        resp = client.get("/api/automation/runs/nonexistent/events")
+        assert resp.status_code == 404
