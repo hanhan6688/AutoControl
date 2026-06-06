@@ -18,9 +18,15 @@ from app.automation.core.driver import DeviceDriver
 router = APIRouter(prefix="/api/automation", tags=["automation"])
 
 _run_store: dict[str, dict] = {}
+_run_events: dict[str, list[dict]] = {}
 
 # Template storage directory
 _TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "static", "templates")
+
+
+def _utc_now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _create_driver(udid: str, platform: str, wda_url: str | None = None) -> DeviceDriver:
@@ -44,6 +50,7 @@ class CreateRunRequest(BaseModel):
 def create_run(request: CreateRunRequest = Body(...)):
     run_id = str(uuid.uuid4())
     _run_store[run_id] = {"udid": request.udid, "platform": request.platform, "steps": request.steps, "status": "created"}
+    _run_events[run_id] = [{"event": "run_created", "timestamp": _utc_now(), "message": "Run created"}]
     return {"run_id": run_id, "status": "created"}
 
 
@@ -52,6 +59,13 @@ def get_run(run_id: str):
     if run_id not in _run_store:
         raise HTTPException(status_code=404, detail="Run not found")
     return _run_store[run_id]
+
+
+@router.get("/runs/{run_id}/events")
+def get_run_events(run_id: str):
+    if run_id not in _run_store:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return _run_events.get(run_id, [])
 
 
 @router.post("/locators/preview")
