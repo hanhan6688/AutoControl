@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleClose, VideoPlay, CircleCheck } from '@element-plus/icons-vue'
+import { ArrowDown, CircleClose, VideoPlay, CircleCheck } from '@element-plus/icons-vue'
 
 defineProps<{
   recording: boolean
@@ -56,7 +56,7 @@ const assertTypes = [
       <el-button size="small" type="success">
         <el-icon><CircleCheck /></el-icon>
         添加断言
-        <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        <el-icon class="el-icon--right"><ArrowDown /></el-icon>
       </el-button>
       <template #dropdown>
         <el-dropdown-menu>

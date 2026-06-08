@@ -411,6 +411,7 @@ function connectScreen(device: DeviceInfo | null | undefined) {
     maxFps: 30,
     maxSize: isElectron ? 1280 : 720,
     useNativeScrcpySurface: preferNativeScrcpySurface,
+    preferApiTouchControl: isElectron,
   })
 }
 
@@ -1633,7 +1634,7 @@ onBeforeUnmount(() => {
       <div class="topbar-actions">
         <el-dropdown v-if="deviceStore.devices.length > 0" trigger="click" @command="connectScreen">
           <el-button type="primary" size="small">
-            切换设备<el-icon class="el-icon--right"><arrow-down /></el-icon>
+                切换设备<el-icon class="el-icon--right"><ArrowDown /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>

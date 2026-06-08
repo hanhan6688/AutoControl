@@ -65,6 +65,7 @@ test('device manager leaves native scrcpy embed mode opt-in inside Electron', ()
   assert.match(source, /const\s+preferNativeScrcpySurface\s*=/)
   assert.doesNotMatch(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
   assert.match(connectScreenSource, /useNativeScrcpySurface:\s*preferNativeScrcpySurface/)
+  assert.match(connectScreenSource, /preferApiTouchControl:\s*isElectron/)
 })
 
 test('device manager delegates automation tab markup to a focused sidebar component', () => {
@@ -91,6 +92,15 @@ test('test case manager leaves native scrcpy embed mode opt-in inside Electron',
   assert.match(source, /const\s+preferNativeScrcpySurface\s*=/)
   assert.doesNotMatch(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
   assert.match(connectScreenSource, /useNativeScrcpySurface:\s*preferNativeScrcpySurface/)
+  assert.match(connectScreenSource, /preferApiTouchControl:\s*isElectron/)
+})
+
+test('screen stream can prefer API control over websocket control when requested', () => {
+  const source = readSource('src/composables/useScreenStream.ts')
+
+  assert.match(source, /preferApiTouchControl\?: boolean/)
+  assert.match(source, /const\s+preferApiTouchControl\s*=\s*currentOptions\.preferApiTouchControl\s*===\s*true/)
+  assert.match(source, /if\s*\(\s*preferApiTouchControl\s*&&\s*canUseApiControl\(\)\s*\)/)
 })
 
 test('test case manager leaves mapped raw h264 streams on the canvas path', () => {
@@ -114,4 +124,12 @@ test('electron opens devtools in detached mode during development', () => {
   const source = readSource('../desktop/main.js')
 
   assert.match(source, /openDevTools\(\{\s*mode:\s*'detach'\s*\}\)/)
+})
+
+test('auto execute panel registers ArrowDown icon instead of relying on lowercase component resolution', () => {
+  const source = readSource('src/components/device/AutoExecutePanel.vue')
+
+  assert.match(source, /ArrowDown/)
+  assert.match(source, /<ArrowDown\s*\/>/)
+  assert.doesNotMatch(source, /<arrow-down\s*\/>/)
 })

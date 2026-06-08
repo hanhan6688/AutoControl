@@ -43,6 +43,8 @@ export interface ScreenStreamOptions {
   wdaUrl?: string
   useExternalScrcpyWindow?: boolean
   useNativeScrcpySurface?: boolean
+  /** Route control through HTTP APIs instead of the live screen socket. */
+  preferApiTouchControl?: boolean
   /** Prefer SocketIO transport over raw WebSocket for screen + control. */
   useSocketio?: boolean
   /** Disable real-time touch control (read-only screen). Saves a socket + thread. */
@@ -788,6 +790,13 @@ export function useScreenStream() {
   }
 
   function sendTouchDown(x: number, y: number): boolean {
+    const preferApiTouchControl = currentOptions.preferApiTouchControl === true
+    if (preferApiTouchControl && canUseApiControl()) {
+      state.value.controlConnected = true
+      state.value.controlMode = 'live'
+      enqueueApiTouch(() => touchDown(state.value.udid, Math.round(x), Math.round(y), currentOptions.platform ?? 'android'))
+      return true
+    }
     if (sioSocket.value?.connected) {
       sioSocket.value.emit('touch_down', { x: Math.round(x), y: Math.round(y) })
       state.value.controlConnected = true
@@ -811,6 +820,11 @@ export function useScreenStream() {
   }
 
   function sendTouchMove(x: number, y: number) {
+    const preferApiTouchControl = currentOptions.preferApiTouchControl === true
+    if (preferApiTouchControl && canUseApiControl()) {
+      queueApiTouchMove(Math.round(x), Math.round(y))
+      return
+    }
     if (sioSocket.value?.connected) {
       sioSocket.value.emit('touch_move', { x: Math.round(x), y: Math.round(y) })
       return
@@ -825,6 +839,11 @@ export function useScreenStream() {
   }
 
   function sendTouchUp(x: number, y: number) {
+    const preferApiTouchControl = currentOptions.preferApiTouchControl === true
+    if (preferApiTouchControl && canUseApiControl()) {
+      enqueueApiTouch(() => touchUp(state.value.udid, Math.round(x), Math.round(y), currentOptions.platform ?? 'android'))
+      return
+    }
     if (sioSocket.value?.connected) {
       sioSocket.value.emit('touch_up', { x: Math.round(x), y: Math.round(y) })
       return
@@ -840,7 +859,7 @@ export function useScreenStream() {
   }
 
   function sendControl(command: Record<string, unknown>) {
-    if (state.value.mode === 'scrcpy-window' || state.value.mode === 'scrcpy-native') {
+    if (currentOptions.preferApiTouchControl === true || state.value.mode === 'scrcpy-window' || state.value.mode === 'scrcpy-native') {
       void sendControlViaApi(command)
       return
     }
@@ -965,7 +984,11 @@ export function useScreenStream() {
     return Boolean(
       state.value.udid &&
       state.value.isConnected &&
-      (state.value.mode === 'scrcpy-native' || state.value.mode === 'scrcpy-window'),
+      (
+        state.value.mode === 'scrcpy-native' ||
+        state.value.mode === 'scrcpy-window' ||
+        currentOptions.preferApiTouchControl === true
+      ),
     )
   }
 
