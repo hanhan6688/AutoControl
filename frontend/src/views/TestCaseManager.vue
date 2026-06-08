@@ -727,6 +727,7 @@ function connectScreen(device: DeviceInfo) {
     provider: 'scrcpy-webcodecs',
     maxFps: isElectron ? 30 : 30,
     maxSize: isElectron ? 1280 : 960,
+    useNativeScrcpySurface: isElectron,
     wdaUrl: device.wda_url ?? undefined,
     control: false,  // 只投屏不控制，节省性能
   })

@@ -20,6 +20,7 @@ import {
   ArrowDown,
   ArrowRight,
   CircleCheck,
+  WarningFilled,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -36,6 +37,7 @@ import {
   swipeDevice,
   tapDevicePoint,
   type DeviceInfo,
+  type ImageCompareResponse,
   type DeviceUiLocateResponse,
   type FileTreeItem,
   type ScreenshotResponse,
@@ -51,6 +53,7 @@ import {
   TAP_DISTANCE_PX,
 } from '../utils/mobileGesture'
 import FileTreeNode from '../components/FileTreeNode.vue'
+import AutomationSidebar from '../components/device/AutomationSidebar.vue'
 import AutoExecutePanel from '../components/device/AutoExecutePanel.vue'
 import TerminalPanel from '../components/device/TerminalPanel.vue'
 
@@ -129,15 +132,16 @@ const activeScriptContent = ref<string | null>(null)
 const expandedFolders = ref<Set<string>>(new Set())
 
 // Automation tab state
-const assertType = ref<'element_exists' | 'text_visible' | 'ocr_contains' | 'image_exists' | 'app_foreground'>('text_visible')
+type AutomationAssertType = 'element_exists' | 'text_visible' | 'ocr_contains' | 'image_exists' | 'app_foreground'
+
+const assertType = ref<AutomationAssertType>('text_visible')
 const assertTargetText = ref('')
 const assertTargetResourceId = ref('')
 const assertTargetAppId = ref('')
 const assertImageThreshold = ref(0.9)
-const assertImageFile = ref<File | null>(null)
 const assertImageTemplateName = ref('')
 const imageCompareBusy = ref(false)
-const imageCompareResult = ref<{ matched: boolean; score: number; location: number[] | null } | null>(null)
+const imageCompareResult = ref<ImageCompareResponse | null>(null)
 
 // Root-level inline creation (VSCode-style)
 const rootCreating = ref(false)
@@ -375,6 +379,16 @@ function connectScreen(device: DeviceInfo | null | undefined) {
     }
     if (selected.platform === 'ios') {
       latestScreenshot.value = null
+      // Start iOS screen stream via SocketIO or WebSocket
+      screen.connect(selected.udid, {
+        platform: 'ios',
+        provider: 'ios-wda',
+        maxFps: 10,
+        maxSize: 720,
+        useSocketio: true,
+        wdaUrl: selected.wda_url ?? undefined,
+        control: true,
+      })
     } else {
       ElMessage.info('当前平台暂未接入实时投屏')
     }
@@ -394,12 +408,13 @@ function connectScreen(device: DeviceInfo | null | undefined) {
     provider: 'scrcpy-webcodecs',
     maxFps: 30,
     maxSize: isElectron ? 1280 : 720,
+    useNativeScrcpySurface: isElectron,
   })
 }
 
 function autoConnectActiveDevice() {
   const device = latestDeviceSnapshot(deviceStore.activeDevice)
-  if (!device || device.status !== 'online' || device.platform !== 'android') {
+  if (!device || device.status !== 'online') {
     if (screen.state.value.udid && (!device || device.udid === screen.state.value.udid)) {
       screen.disconnect()
     }
@@ -889,66 +904,69 @@ function isInputElement(element: DeviceUiLocateResponse['element']): boolean {
   return ['edittext', 'autocompletetextview', 'textfield', 'securetextfield', 'textarea'].some(marker => className.includes(marker))
 }
 
-async function addAssertToRecording() {
-  if (!autoExecuteRecording.value || activeScriptContent.value === null || !deviceStore.activeDevice) return
-  flushRecordedInput()
-
-  try {
-    const { value } = await ElMessageBox.prompt(
-      '输入要验证的文本内容，将生成 auto_execute.assert_text_visible(...) 写入脚本',
-      '添加验证步骤',
-      {
-        inputPlaceholder: '例如：登录成功',
-        confirmButtonText: '添加验证',
-        cancelButtonText: '取消',
-      },
-    )
-    const text = String(value || '').trim()
-    if (!text) return
-    appendCommandToActiveScript(`auto_execute.assert_text_visible(${pythonStringLiteral(text)})`)
-    ElMessage.success(`已添加验证步骤：assert_text_visible("${text}")`)
-  } catch {
-    // user cancelled
+function buildAssertionCommand(type: AutomationAssertType = assertType.value): string | null {
+  if (type === 'text_visible') {
+    const text = assertTargetText.value.trim()
+    if (!text) {
+      ElMessage.warning('请输入文本内容')
+      return null
+    }
+    return `auto_execute.assert_text_visible(${pythonStringLiteral(text)})`
   }
+  if (type === 'element_exists') {
+    const resourceId = assertTargetResourceId.value.trim()
+    if (!resourceId) {
+      ElMessage.warning('请输入 Resource ID')
+      return null
+    }
+    return `auto_execute.wait_for_element(resource_id=${pythonStringLiteral(resourceId)})\nauto_execute.assert_element_exists(resource_id=${pythonStringLiteral(resourceId)})`
+  }
+  if (type === 'ocr_contains') {
+    const text = assertTargetText.value.trim()
+    if (!text) {
+      ElMessage.warning('请输入 OCR 文本')
+      return null
+    }
+    return `auto_execute.assert_ocr_contains(${pythonStringLiteral(text)})`
+  }
+  if (type === 'image_exists') {
+    const path = assertImageTemplateName.value.trim()
+    if (!path) {
+      ElMessage.warning('请先设置模板图片路径或截取基准图')
+      return null
+    }
+    return `auto_execute.assert_image_exists(${pythonStringLiteral(path)}, threshold=${Number(assertImageThreshold.value.toFixed(2))})`
+  }
+  const appId = assertTargetAppId.value.trim()
+  if (!appId) {
+    ElMessage.warning('请输入 App 包名/Bundle ID')
+    return null
+  }
+  return `auto_execute.assert_app_foreground(${pythonStringLiteral(appId)})`
 }
 
-function addTypedAssertToRecording() {
-  if (!autoExecuteRecording.value || activeScriptContent.value === null) {
-    ElMessage.warning('请先开启录制模式')
+function addAssertToRecording(type: AutomationAssertType = assertType.value) {
+  assertType.value = type
+  if (!deviceStore.activeDevice || activeScriptContent.value === null) {
+    ElMessage.warning('请先打开脚本并选择在线设备')
     return
   }
   flushRecordedInput()
+  const command = buildAssertionCommand(type)
+  if (!command) return
 
-  const type = assertType.value
-  if (type === 'text_visible') {
-    const text = assertTargetText.value.trim()
-    if (!text) { ElMessage.warning('请输入文本内容'); return }
-    appendCommandToActiveScript(`auto_execute.assert_text_visible(${pythonStringLiteral(text)})`)
-    ElMessage.success(`已添加：assert_text_visible("${text}")`)
-  } else if (type === 'element_exists') {
-    const rid = assertTargetResourceId.value.trim()
-    if (!rid) { ElMessage.warning('请输入 Resource ID'); return }
-    appendCommandToActiveScript(`auto_execute.wait_for_element(resource_id=${pythonStringLiteral(rid)})\nauto_execute.assert_element_exists(resource_id=${pythonStringLiteral(rid)})`)
-    ElMessage.success(`已添加：assert_element_exists("${rid}")`)
-  } else if (type === 'ocr_contains') {
-    const text = assertTargetText.value.trim()
-    if (!text) { ElMessage.warning('请输入 OCR 文本'); return }
-    appendCommandToActiveScript(`auto_execute.assert_ocr_contains(${pythonStringLiteral(text)})`)
-    ElMessage.success(`已添加：assert_ocr_contains("${text}")`)
-  } else if (type === 'image_exists') {
-    const path = assertImageTemplateName.value.trim() || 'templates/capture.png'
-    const threshold = assertImageThreshold.value
-    appendCommandToActiveScript(`auto_execute.assert_image_exists(${pythonStringLiteral(path)}, threshold=${threshold})`)
-    ElMessage.success(`已添加：assert_image_exists("${path}", threshold=${threshold})`)
-  } else if (type === 'app_foreground') {
-    const appId = assertTargetAppId.value.trim()
-    if (!appId) { ElMessage.warning('请输入 App 包名/Bundle ID'); return }
-    appendCommandToActiveScript(`auto_execute.assert_app_foreground(${pythonStringLiteral(appId)})`)
-    ElMessage.success(`已添加：assert_app_foreground("${appId}")`)
+  if (!autoExecuteRecording.value) {
+    autoExecuteStatusText.value = `断言已就绪：${command}`
+    ElMessage.info('当前未开启录制，已保留断言配置；开始录制后再写入脚本')
+    return
   }
+
+  appendCommandToActiveScript(command)
+  autoExecuteStatusText.value = `已写入断言：${command}`
+  ElMessage.success('已写入断言到当前脚本')
 }
 
-async function doImageCompare() {
+async function runAssertImageCompare() {
   const device = runnableActiveDevice()
   if (!device) return
   const path = assertImageTemplateName.value.trim()
@@ -970,13 +988,14 @@ async function doImageCompare() {
   }
 }
 
-async function doCaptureTemplate() {
+async function captureAssertTemplate() {
   const device = runnableActiveDevice()
   if (!device) return
   imageCompareBusy.value = true
   try {
     const result = await captureTemplate(device.udid, device.platform, null, device.wda_url ?? null)
     assertImageTemplateName.value = result.template_path
+    autoExecuteStatusText.value = `已更新模板：${result.template_name}`
     ElMessage.success(`已截取基准图：${result.template_name}`)
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '截取基准图失败')
@@ -986,65 +1005,9 @@ async function doCaptureTemplate() {
 }
 
 async function handleAutoExecuteAddAssert(type: string) {
-  if (!autoExecuteRecording.value || activeScriptContent.value === null) {
-    ElMessage.warning('请先开启录制模式')
-    return
-  }
-  flushRecordedInput()
-
-  if (type === 'text_visible') {
-    try {
-      const { value } = await ElMessageBox.prompt(
-        '输入要验证的文本内容',
-        '添加文本断言',
-        { inputPlaceholder: '例如：登录成功', confirmButtonText: '添加', cancelButtonText: '取消' },
-      )
-      const text = String(value || '').trim()
-      if (!text) return
-      appendCommandToActiveScript(`auto_execute.assert_text_visible(${pythonStringLiteral(text)})`)
-      ElMessage.success(`已添加：assert_text_visible("${text}")`)
-    } catch { /* cancelled */ }
-  } else if (type === 'element_exists') {
-    try {
-      const { value } = await ElMessageBox.prompt(
-        '输入元素 Resource ID',
-        '添加元素存在断言',
-        { inputPlaceholder: '例如：com.demo:id/btn', confirmButtonText: '添加', cancelButtonText: '取消' },
-      )
-      const rid = String(value || '').trim()
-      if (!rid) return
-      appendCommandToActiveScript(`auto_execute.wait_for_element(resource_id=${pythonStringLiteral(rid)})\nauto_execute.assert_element_exists(resource_id=${pythonStringLiteral(rid)})`)
-      ElMessage.success(`已添加：assert_element_exists("${rid}")`)
-    } catch { /* cancelled */ }
-  } else if (type === 'ocr_contains') {
-    try {
-      const { value } = await ElMessageBox.prompt(
-        '输入 OCR 文本',
-        '添加 OCR 断言',
-        { inputPlaceholder: '例如：首页', confirmButtonText: '添加', cancelButtonText: '取消' },
-      )
-      const text = String(value || '').trim()
-      if (!text) return
-      appendCommandToActiveScript(`auto_execute.assert_ocr_contains(${pythonStringLiteral(text)})`)
-      ElMessage.success(`已添加：assert_ocr_contains("${text}")`)
-    } catch { /* cancelled */ }
-  } else if (type === 'image_exists') {
-    const path = assertImageTemplateName.value.trim() || 'templates/capture.png'
-    const threshold = assertImageThreshold.value
-    appendCommandToActiveScript(`auto_execute.assert_image_exists(${pythonStringLiteral(path)}, threshold=${threshold})`)
-    ElMessage.success(`已添加：assert_image_exists("${path}", threshold=${threshold})`)
-  } else if (type === 'app_foreground') {
-    try {
-      const { value } = await ElMessageBox.prompt(
-        '输入 App 包名 / Bundle ID',
-        '添加 App 前台断言',
-        { inputPlaceholder: '例如：com.demo.app', confirmButtonText: '添加', cancelButtonText: '取消' },
-      )
-      const appId = String(value || '').trim()
-      if (!appId) return
-      appendCommandToActiveScript(`auto_execute.assert_app_foreground(${pythonStringLiteral(appId)})`)
-      ElMessage.success(`已添加：assert_app_foreground("${appId}")`)
-    } catch { /* cancelled */ }
+  const nextType = type as AutomationAssertType
+  if (['element_exists', 'text_visible', 'ocr_contains', 'image_exists', 'app_foreground'].includes(nextType)) {
+    addAssertToRecording(nextType)
   }
 }
 
@@ -1897,91 +1860,30 @@ onBeforeUnmount(() => {
 
           <!-- Automation tab — assertions & image compare -->
           <template v-if="activeLeftTab === 'automation'">
-            <div class="automation-controls">
-              <div class="sidebar-section-title compact">添加断言</div>
-              <el-select v-model="assertType" size="small" class="assert-type-select">
-                <el-option label="文本可见" value="text_visible" />
-                <el-option label="元素存在" value="element_exists" />
-                <el-option label="OCR 包含" value="ocr_contains" />
-                <el-option label="图像对比" value="image_exists" />
-                <el-option label="App 前台" value="app_foreground" />
-              </el-select>
-
-              <!-- text_visible / ocr_contains input -->
-              <el-input
-                v-if="assertType === 'text_visible' || assertType === 'ocr_contains'"
-                v-model="assertTargetText"
-                size="small"
-                placeholder="输入验证文本"
-              />
-
-              <!-- element_exists input -->
-              <el-input
-                v-if="assertType === 'element_exists'"
-                v-model="assertTargetResourceId"
-                size="small"
-                placeholder="Resource ID，如 com.demo:id/btn"
-              />
-
-              <!-- app_foreground input -->
-              <el-input
-                v-if="assertType === 'app_foreground'"
-                v-model="assertTargetAppId"
-                size="small"
-                placeholder="包名 / Bundle ID"
-              />
-
-              <!-- image_exists: template path + threshold -->
-              <template v-if="assertType === 'image_exists'">
-                <el-input
-                  v-model="assertImageTemplateName"
-                  size="small"
-                  placeholder="模板图片路径"
-                />
-                <div class="threshold-row">
-                  <span>阈值</span>
-                  <el-slider v-model="assertImageThreshold" :min="0.7" :max="1" :step="0.01" size="small" />
-                </div>
-              </template>
-
-              <el-button
-                size="small"
-                type="primary"
-                :disabled="!deviceStore.activeDevice || !autoExecuteRecording"
-                @click="addTypedAssertToRecording"
-              >
-                写入断言
-              </el-button>
-              <div class="assert-hint" v-if="!autoExecuteRecording">
-                录制模式下可直接写入断言到脚本
-              </div>
-
-              <div class="sidebar-section-title compact" style="margin-top: 8px;">图像对比</div>
-              <el-button
-                :icon="Camera"
-                :loading="imageCompareBusy"
-                size="small"
-                :disabled="!deviceStore.activeDevice"
-                @click="doCaptureTemplate"
-              >
-                截取基准图
-              </el-button>
-              <el-button
-                :icon="Search"
-                :loading="imageCompareBusy"
-                size="small"
-                :disabled="!deviceStore.activeDevice || !assertImageTemplateName"
-                @click="doImageCompare"
-              >
-                对比当前画面
-              </el-button>
-              <div v-if="imageCompareResult" class="compare-result">
-                <el-tag :type="imageCompareResult.matched ? 'success' : 'danger'" size="small">
-                  {{ imageCompareResult.matched ? '匹配' : '未匹配' }}
-                </el-tag>
-                <span class="compare-score">得分: {{ imageCompareResult.score.toFixed(2) }}</span>
-              </div>
-            </div>
+            <AutomationSidebar
+              :device-ready="Boolean(deviceStore.activeDevice)"
+              :script-ready="activeScriptContent !== null"
+              :recording="autoExecuteRecording"
+              :active-script-path="activeScriptPath"
+              :status-text="autoExecuteStatusText"
+              :assert-type="assertType"
+              :assert-target-text="assertTargetText"
+              :assert-target-resource-id="assertTargetResourceId"
+              :assert-target-app-id="assertTargetAppId"
+              :assert-image-threshold="assertImageThreshold"
+              :assert-image-template-name="assertImageTemplateName"
+              :image-compare-busy="imageCompareBusy"
+              :image-compare-result="imageCompareResult"
+              @update-assert-type="assertType = $event"
+              @update-assert-target-text="assertTargetText = $event"
+              @update-assert-target-resource-id="assertTargetResourceId = $event"
+              @update-assert-target-app-id="assertTargetAppId = $event"
+              @update-assert-image-threshold="assertImageThreshold = $event"
+              @update-assert-image-template-name="assertImageTemplateName = $event"
+              @add-assert="addAssertToRecording"
+              @capture-template="captureAssertTemplate"
+              @run-image-compare="runAssertImageCompare"
+            />
           </template>
         </div>
 
@@ -2205,21 +2107,34 @@ onBeforeUnmount(() => {
             <span>选择设备进行投屏</span>
           </div>
 
-          <!-- iOS screenshot mode -->
-          <div v-else-if="deviceStore.activeDevice.platform === 'ios'" class="screen-wrapper ios-screenshot-wrapper">
-            <div v-if="latestScreenshot" class="ios-screenshot-canvas">
-              <img
-                ref="screenshotImageRef"
-                :src="getAssetUrl(latestScreenshot.url)"
-                alt="iOS 截图"
-                @pointerdown="handleScreenshotPointerDown"
-                @pointerup="handleScreenshotPointerUp"
-                @pointercancel="handleScreenshotPointerCancel"
+          <!-- iOS live stream mode (SocketIO or WebSocket) -->
+          <div v-else-if="deviceStore.activeDevice.platform === 'ios'" class="screen-wrapper ios-stream-wrapper">
+            <div v-if="screen.state.value.isConnected" class="screen-canvas-container">
+              <canvas
+                :ref="screen.setCanvas"
+                class="screen-canvas"
+                :style="{ background: '#000', aspectRatio: screenAspectRatio }"
+                tabindex="0"
+                @pointerdown="handlePointerDown"
+                @pointermove="handlePointerMove"
+                @pointerup="handlePointerUp"
+                @pointercancel="handlePointerCancel"
+                @keydown="handleScreenKeyDown"
               />
             </div>
+            <div v-else-if="screen.state.value.isLoading" class="screen-empty">
+              <el-icon :size="36" class="is-loading"><Loading /></el-icon>
+              <span>正在连接 iOS 投屏...</span>
+            </div>
+            <div v-else-if="screen.state.value.error" class="screen-empty screen-error">
+              <el-icon :size="36"><WarningFilled /></el-icon>
+              <span>{{ screen.state.value.error }}</span>
+              <el-button type="primary" size="default" @click="connectScreen(deviceStore.activeDevice)">重连</el-button>
+            </div>
             <div v-else class="screen-empty">
-              <el-icon :size="36"><Camera /></el-icon>
-              <span>点击"截图"加载 iOS 画面后开始录制</span>
+              <el-icon :size="36"><Cellphone /></el-icon>
+              <span>点击"启动投屏"连接 iOS 设备</span>
+              <el-button type="primary" size="default" @click="connectScreen(deviceStore.activeDevice)">启动投屏</el-button>
             </div>
           </div>
 
@@ -2343,6 +2258,13 @@ onBeforeUnmount(() => {
           </button>
           <button class="android-nav-button" title="任务窗" :disabled="!deviceStore.activeDevice" @click="sendKeyEvent('APP_SWITCH')">
             <el-icon><Grid /></el-icon>
+          </button>
+        </div>
+
+        <!-- iOS nav bar -->
+        <div v-if="screen.state.value.isConnected && deviceStore.activeDevice?.platform === 'ios'" class="android-nav-bar ios-nav-bar">
+          <button class="android-nav-button" title="Home" :disabled="!deviceStore.activeDevice" @click="sendKeyEvent('HOME')">
+            <el-icon><HomeFilled /></el-icon>
           </button>
         </div>
 
@@ -2852,40 +2774,6 @@ onBeforeUnmount(() => {
   gap: 8px;
   color: var(--text-muted);
   font-size: 12px;
-}
-
-/* Automation controls */
-.automation-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 12px;
-}
-
-.assert-type-select {
-  width: 100%;
-}
-
-.assert-hint {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.compare-result {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-secondary);
-}
-
-.compare-score {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 /* Editor Area */

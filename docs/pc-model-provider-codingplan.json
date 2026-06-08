@@ -1,0 +1,164 @@
+{
+  "name": "PC Model Provider Selection Coding Plan",
+  "date": "2026-05-21",
+  "scope": "PC/Web automation only. Mobile Open-AutoGLM execution must remain unchanged.",
+  "current_state": {
+    "pc_ui": {
+      "file": "frontend/src/views/PCAutoExecute.vue",
+      "mode": "screenshot_first",
+      "uses_realtime_browser_view_as_core": false,
+      "capabilities": [
+        "connect browser through agent-browser",
+        "show latest screenshot",
+        "show page elements",
+        "stream AI logs",
+        "show command logs"
+      ]
+    },
+    "pc_backend": {
+      "agent_service": "backend/app/services/pc_browser_agent_service.py",
+      "browser_service": "backend/app/services/pc_browser_service.py",
+      "test_execution_integration": "backend/app/services/test_execution_service.py",
+      "current_model_config_source": "CASE_PLANNER_*",
+      "problem": "PC Agent currently reuses case planner model config instead of having a dedicated PC operation model config."
+    },
+    "mobile_backend": {
+      "executor": "Open-AutoGLM",
+      "config_source": "AUTOGLM_*",
+      "change_required": false
+    }
+  },
+  "target_model_roles": [
+    {
+      "role": "mobile_executor",
+      "config_prefix": "AUTOGLM",
+      "purpose": "Operate mobile devices through Open-AutoGLM",
+      "change": "unchanged"
+    },
+    {
+      "role": "case_planner",
+      "config_prefix": "CASE_PLANNER",
+      "purpose": "Rewrite human test cases into executable task plans",
+      "change": "unchanged"
+    },
+    {
+      "role": "pc_agent",
+      "config_prefix": "PC_AGENT",
+      "purpose": "Decide the next browser/computer action for agent-browser",
+      "change": "new"
+    },
+    {
+      "role": "result_assertion",
+      "config_prefix": "RESULT_ASSERTION",
+      "purpose": "Judge pass/fail/uncertain from evidence",
+      "change": "unchanged"
+    }
+  ],
+  "new_env": {
+    "PC_AGENT_ENABLED": "true",
+    "PC_AGENT_PROVIDER": "openai_compatible",
+    "PC_AGENT_BASE_URL": "https://open.bigmodel.cn/api/paas/v4",
+    "PC_AGENT_MODEL": "GLM-4.7-Flash",
+    "PC_AGENT_API_KEY": "EMPTY",
+    "PC_AGENT_TIMEOUT_SECONDS": "30",
+    "PC_AGENT_TEMPERATURE": "0.1",
+    "PC_AGENT_MAX_TOKENS": "700"
+  },
+  "provider_types": [
+    {
+      "id": "openai_compatible",
+      "protocol": "OpenAI Chat Completions",
+      "examples": ["Zhipu GLM", "DeepSeek", "Qwen", "Moonshot/Kimi", "MiniMax /v1", "local vLLM", "OneAPI", "LiteLLM"],
+      "adapter": "OpenAICompatibleClient"
+    },
+    {
+      "id": "anthropic_compatible",
+      "protocol": "Anthropic Messages",
+      "examples": ["Claude", "MiniMax Anthropic-compatible endpoint"],
+      "adapter": "AnthropicCompatibleClient"
+    },
+    {
+      "id": "custom_openai",
+      "protocol": "OpenAI Chat Completions",
+      "examples": ["custom gateway", "private vLLM", "self-hosted proxy"],
+      "adapter": "OpenAICompatibleClient"
+    }
+  ],
+  "backend_tasks": [
+    {
+      "id": "B1",
+      "name": "Add PC_AGENT settings",
+      "files": ["backend/app/config.py", "backend/.env.example"],
+      "tests": ["backend/tests/test_model_provider_service.py"]
+    },
+    {
+      "id": "B2",
+      "name": "Create model provider service",
+      "files": ["backend/app/services/model_provider_service.py"],
+      "responsibilities": ["provider presets", "masked API keys", "client selection", "config normalization"]
+    },
+    {
+      "id": "B3",
+      "name": "Create PC agent model service",
+      "files": ["backend/app/services/pc_agent_model_service.py"],
+      "responsibilities": ["build PC action prompt", "call selected provider", "parse JSON action"]
+    },
+    {
+      "id": "B4",
+      "name": "Refactor PCBrowserAgentService",
+      "files": ["backend/app/services/pc_browser_agent_service.py"],
+      "responsibilities": ["remove direct OpenAI config usage", "use PCAgentModelService by default", "keep observe-act-screenshot loop"]
+    },
+    {
+      "id": "B5",
+      "name": "Add PC model config API",
+      "files": ["backend/app/routers/pc_browser.py"],
+      "endpoints": [
+        "GET /api/pc-browser/agent/model/config",
+        "PUT /api/pc-browser/agent/model/config",
+        "GET /api/pc-browser/agent/model/presets",
+        "POST /api/pc-browser/agent/model/test"
+      ]
+    },
+    {
+      "id": "B6",
+      "name": "Log selected model during web case execution",
+      "files": ["backend/app/services/test_execution_service.py"],
+      "mobile_impact": "none"
+    }
+  ],
+  "frontend_tasks": [
+    {
+      "id": "F1",
+      "name": "Add PC model API types",
+      "files": ["frontend/src/api.ts"]
+    },
+    {
+      "id": "F2",
+      "name": "Add model selector to PC AutoExecute",
+      "files": ["frontend/src/views/PCAutoExecute.vue"],
+      "future_split": ["frontend/src/components/pc/PCAgentModelConfigPanel.vue", "frontend/src/composables/usePCAgentModelConfig.ts"]
+    },
+    {
+      "id": "F3",
+      "name": "Keep screenshot-first execution UI",
+      "files": ["frontend/src/views/PCAutoExecute.vue"],
+      "must_not_reintroduce": "real-time BrowserView as core execution UI"
+    }
+  ],
+  "acceptance_criteria": [
+    "PC/Web execution can choose model provider independently from mobile AutoGLM.",
+    "Mobile AUTOGLM_* config remains unchanged.",
+    "PC Agent logs selected provider/model.",
+    "PC AutoExecute displays current provider/model and supports test connection.",
+    "API keys are masked in API responses and excluded from reports.",
+    "OpenAI-compatible providers use one adapter.",
+    "Anthropic-compatible providers have a separate adapter boundary.",
+    "Existing screenshot-first PC execution remains.",
+    "Backend tests and frontend build pass."
+  ],
+  "verification_commands": [
+    "python -m pytest backend\\tests -q",
+    "npm run build"
+  ]
+}

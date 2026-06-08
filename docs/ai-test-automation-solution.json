@@ -1,0 +1,226 @@
+{
+  "name": "Mobile-AI-TestOps AI Automation Solution",
+  "version": "1.0",
+  "goal": "Build a unified AI automation testing platform for mobile and PC/Web test cases, with per-case evidence and plan-level reports.",
+  "core_principles": [
+    "Mobile automation uses Open-AutoGLM as the executor.",
+    "PC/Web automation uses agent-browser as the executor.",
+    "The AI planner rewrites human test cases into stable executable task briefs.",
+    "The judgement agent evaluates results from logs, screenshots, page state, and expected results.",
+    "Reports preserve step evidence instead of only storing final status."
+  ],
+  "executors": {
+    "mobile": {
+      "executor": "Open-AutoGLM",
+      "platforms": ["android", "ios", "harmony"],
+      "connection_layers": {
+        "android": "ADB",
+        "ios": "WDA",
+        "harmony": "HDC"
+      },
+      "execution_phases": [
+        {
+          "phase": "precondition",
+          "description": "Bring the device to the test start state."
+        },
+        {
+          "phase": "execution",
+          "description": "Execute the actual test steps."
+        },
+        {
+          "phase": "assertion",
+          "description": "Capture final evidence and judge whether expected result is met."
+        }
+      ],
+      "evidence": [
+        "Open-AutoGLM streamed logs",
+        "final screenshot",
+        "action trace",
+        "assertion result"
+      ],
+      "fallback_capabilities": [
+        "AutoExecute UI element recording",
+        "OCR click",
+        "image template matching",
+        "coordinate click fallback"
+      ]
+    },
+    "pc_web": {
+      "executor": "agent-browser",
+      "ui_strategy": "step_screenshot_first",
+      "note": "agent-browser is CLI-first. Realtime Electron browser rendering should be auxiliary, not the core evidence mechanism.",
+      "connection_layers": {
+        "browser": "Chrome/Chromium",
+        "automation": "CDP",
+        "manual_takeover": "Electron visible browser"
+      },
+      "supported_actions": [
+        "click",
+        "fill",
+        "press",
+        "scroll",
+        "wait_text",
+        "finish",
+        "need_user"
+      ],
+      "execution_loop": [
+        "open target URL",
+        "capture current URL, title, interactive snapshot, and page text",
+        "ask PC Agent for next structured action",
+        "execute action through agent-browser",
+        "capture step screenshot",
+        "stream log event to frontend",
+        "pause with need_user when login, captcha, QR code, 2FA, payment, or sensitive authorization is detected",
+        "resume from current browser state after user confirms",
+        "save final report"
+      ],
+      "evidence": [
+        "agent-browser command logs",
+        "interactive snapshot",
+        "step screenshots",
+        "AI decisions",
+        "final page state"
+      ]
+    }
+  },
+  "test_case_routing": {
+    "mobile_platform_types": [
+      "app",
+      "wechat_mini",
+      "android_app",
+      "ios_app",
+      "harmony_app"
+    ],
+    "pc_platform_types": [
+      "web"
+    ],
+    "routing_rules": [
+      {
+        "when": "platform_type is web",
+        "executor": "agent-browser"
+      },
+      {
+        "when": "platform_type is app, wechat_mini, android_app, ios_app, or harmony_app",
+        "executor": "Open-AutoGLM"
+      },
+      {
+        "when": "platform_type is unknown",
+        "executor": "ask user or infer from target_app and steps"
+      }
+    ]
+  },
+  "reporting": {
+    "root": "backend/app/static/reports/runs",
+    "plan_folder_example": "plan_20260520_001",
+    "case_folder_example": "case_001",
+    "plan_outputs": [
+      "summary.json",
+      "summary.html"
+    ],
+    "case_outputs": [
+      "execution.json",
+      "report.html",
+      "trace.json",
+      "screenshots/step_001.png",
+      "screenshots/final.png"
+    ],
+    "case_report_fields": [
+      "case metadata",
+      "platform type",
+      "executor type",
+      "task plan",
+      "step logs",
+      "step screenshots",
+      "final screenshot",
+      "assertion result",
+      "error category",
+      "raw trace link"
+    ],
+    "plan_report_fields": [
+      "total cases",
+      "passed count",
+      "failed count",
+      "uncertain count",
+      "pass rate",
+      "case result rows",
+      "case report links",
+      "error category statistics"
+    ]
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "name": "Stable foundation",
+      "tasks": ["clean path handling", "unify config", "stabilize frontend/backend port discovery"],
+      "output": "Project starts reliably"
+    },
+    {
+      "id": "P1",
+      "name": "Mobile execution stability",
+      "tasks": ["two-phase AutoGLM execution", "Android/iOS/Harmony switching", "streaming logs"],
+      "output": "Mobile test cases run through Open-AutoGLM"
+    },
+    {
+      "id": "P2",
+      "name": "Mobile evidence enhancement",
+      "tasks": ["final screenshot", "externalized logs", "slim report index"],
+      "output": "Mobile single-case reports are stable"
+    },
+    {
+      "id": "P3",
+      "name": "PC/Web execution MVP",
+      "tasks": ["agent-browser single task execution", "step screenshots", "streaming logs"],
+      "output": "PC AutoExecute can run AI-driven browser tasks"
+    },
+    {
+      "id": "P4",
+      "name": "Manual takeover",
+      "tasks": ["pause on login/captcha/QR/2FA", "visible browser takeover", "resume execution"],
+      "output": "Real business login flows can be handled"
+    },
+    {
+      "id": "P5",
+      "name": "Unified test case dispatch",
+      "tasks": ["route by platform_type", "mobile executor adapter", "pc executor adapter"],
+      "output": "One Excel/CSV can run mobile and PC/Web cases"
+    },
+    {
+      "id": "P6",
+      "name": "Judgement agent",
+      "tasks": ["evaluate expected result", "use screenshots/logs/page text", "return pass/fail/uncertain"],
+      "output": "Execution completion is separated from test success"
+    },
+    {
+      "id": "P7",
+      "name": "Report center",
+      "tasks": ["per-case folder", "plan summary", "HTML/JSON exports"],
+      "output": "MobAI-like report experience"
+    },
+    {
+      "id": "P8",
+      "name": "Regression capability",
+      "tasks": ["mobile AutoExecute recording", "PC snapshot/ref scripts", "replay runner"],
+      "output": "Stable repeatable regression scripts"
+    }
+  ],
+  "final_user_flow": [
+    "User imports Excel or CSV.",
+    "Platform parses every test case.",
+    "Platform routes each case by platform_type.",
+    "User selects mobile device or PC/Web environment.",
+    "User clicks run.",
+    "Each case panel streams logs.",
+    "Every step saves screenshot evidence.",
+    "Manual takeover is triggered for login or verification.",
+    "User resumes execution after manual handling.",
+    "Single-case report is generated.",
+    "Plan summary report is generated."
+  ],
+  "short_term_recommendation": [
+    "Change PC AutoExecute from realtime-browser-first to step-screenshot-first.",
+    "Integrate PC Agent into the test case execution entry.",
+    "Route platform_type=web to agent-browser.",
+    "Route mobile platform types to Open-AutoGLM.",
+    "Use the same ReportWriter for mobile and PC/Web reports."
+  ]
+}

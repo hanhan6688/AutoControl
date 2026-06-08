@@ -1,0 +1,255 @@
+:root {
+  /* Light theme (default) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e8e8e8;
+  --bg-nav: #ffffff;
+  --bg-sidebar: #fafafa;
+  --bg-input: #ffffff;
+  --bg-code: #f6f8fa;
+  --border-color: #d0d7de;
+  --border-subtle: #e6e6e6;
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --text-muted: #9198a1;
+  --text-inverse: #ffffff;
+  --accent: #0969da;
+  --accent-hover: #0550ae;
+  --accent-subtle: #ddf4ff;
+  --success: #1a7f37;
+  --warning: #9a6700;
+  --danger: #cf222e;
+  --info: #0550ae;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #333333;
+    --bg-nav: #333333;
+    --bg-sidebar: #252526;
+    --bg-input: #3c3c3c;
+    --bg-code: #1e1e1e;
+    --border-color: #3c3c3c;
+    --border-subtle: #333333;
+    --text-primary: #cccccc;
+    --text-secondary: #858585;
+    --text-muted: #6e6e6e;
+    --text-inverse: #1e1e1e;
+    --accent: #007acc;
+    --accent-hover: #0098ff;
+    --accent-subtle: #0e3a5c;
+    --success: #3fb950;
+    --warning: #d29922;
+    --danger: #f85149;
+    --info: #58a6ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  min-width: 320px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+button {
+  font: inherit;
+}
+
+/* Element Plus light theme overrides (dark mode via CSS vars above) */
+.el-button {
+  --el-button-bg-color: var(--accent);
+  --el-button-border-color: var(--accent);
+  --el-button-text-color: var(--text-inverse);
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--accent);
+  --el-button-border-color: var(--accent);
+}
+
+.el-input__wrapper {
+  background: var(--bg-input);
+  box-shadow: 0 0 0 1px var(--border-color) inset;
+  color: var(--text-primary);
+}
+
+.el-input__inner {
+  color: var(--text-primary);
+}
+
+.el-tag {
+  --el-tag-bg-color: var(--bg-tertiary);
+  --el-tag-border-color: var(--border-color);
+  --el-tag-text-color: var(--text-secondary);
+}
+
+.el-dropdown-menu {
+  background: var(--bg-sidebar);
+  border-color: var(--border-color);
+}
+
+.el-dropdown-menu__item {
+  color: var(--text-primary);
+}
+
+.el-dropdown-menu__item:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.el-alert {
+  --el-alert-bg-color: var(--bg-sidebar);
+  --el-alert-border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.el-table {
+  --el-table-bg-color: var(--bg-primary);
+  --el-table-tr-bg-color: var(--bg-primary);
+  --el-table-header-bg-color: var(--bg-secondary);
+  --el-table-row-hover-bg-color: var(--bg-tertiary);
+  --el-table-border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.el-table th.el-table__cell {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+/* Dialog */
+.el-dialog {
+  --el-dialog-bg-color: var(--bg-primary);
+  --el-dialog-title-font-size: 16px;
+}
+
+.el-dialog__header {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.el-dialog__title {
+  color: var(--text-primary);
+}
+
+.el-dialog__body {
+  color: var(--text-primary);
+}
+
+/* Form */
+.el-form-item__label {
+  color: var(--text-secondary);
+}
+
+/* Select */
+.el-select-dropdown {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.el-select-dropdown__item {
+  color: var(--text-primary);
+}
+
+.el-select-dropdown__item:hover {
+  background: var(--bg-tertiary);
+}
+
+.el-select-dropdown__item.selected {
+  color: var(--accent);
+}
+
+/* Message Box */
+.el-message-box {
+  background: var(--bg-primary);
+}
+
+.el-message-box__title {
+  color: var(--text-primary);
+}
+
+.el-message-box__content {
+  color: var(--text-secondary);
+}
+
+/* Loading */
+.el-loading-mask {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.el-loading-spinner .el-loading-text {
+  color: var(--text-primary);
+}
+
+/* Image */
+.el-image {
+  background: var(--bg-tertiary);
+}
+
+/* Switch */
+.el-switch__label {
+  color: var(--text-secondary);
+}
+
+/* Slider */
+.el-slider__runway {
+  background: var(--bg-tertiary);
+}
+
+/* Checkbox */
+.el-checkbox__label {
+  color: var(--text-primary);
+}
+
+/* Radio */
+.el-radio__label {
+  color: var(--text-primary);
+}
+
+/* Pagination */
+.el-pagination {
+  --el-pagination-bg-color: var(--bg-primary);
+  --el-pagination-text-color: var(--text-secondary);
+  --el-pagination-button-bg-color: var(--bg-secondary);
+}
+
+/* Card */
+.el-card {
+  --el-card-bg-color: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+/* Tooltip */
+.el-tooltip__popper {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+/* Upload */
+.el-upload-dragger {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+.el-upload-list__item {
+  color: var(--text-primary);
+}
+
+/* Empty */
+.el-empty__description {
+  color: var(--text-muted);
+}

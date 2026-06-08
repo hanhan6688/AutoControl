@@ -1,0 +1,20 @@
+{
+  "name": "mobile-ai-testops",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -k -n frontend,desktop \"npm --prefix frontend run dev:vite\" \"cross-env ELECTRON_DEV=true VITE_DEV_SERVER_URL=http://127.0.0.1:5173 npm --prefix desktop start\"",
+    "dev:electron": "npm run dev",
+    "dev:browser": "npm --prefix frontend run dev:vite",
+    "dev:backend": ".venv/Scripts/python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
+    "build": "npm --prefix frontend run build",
+    "build:all": "npm run build && npm --prefix desktop run build:win",
+    "package:exe": "npm run build && npm --prefix desktop run build:win",
+    "install:agent-browser": "npm install --prefix tools/agent-browser && npm --prefix tools/agent-browser run install-browser",
+    "audit": "npm audit && npm --prefix frontend audit && npm --prefix desktop audit"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0"
+  }
+}
