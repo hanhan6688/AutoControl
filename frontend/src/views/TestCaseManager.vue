@@ -81,6 +81,7 @@ const electronAPI = typeof window !== 'undefined' ? (window as any).electronAPI 
 const isElectron = Boolean(electronAPI?.isElectron)
 const electronScreenStreamConfig = electronAPI?.getScreenStreamConfig?.() ?? null
 const preferNativeScrcpySurface = Boolean(electronScreenStreamConfig?.preferNativeScrcpySurface)
+const preferH264Stream = !isElectron || electronScreenStreamConfig?.preferH264 === true
 const isEmbeddedVideoStream = computed(() =>
   screen.state.value.provider === 'scrcpy-ffmpeg-fmp4' || screen.state.value.mimeType === 'video/mp4',
 )
@@ -726,7 +727,7 @@ function connectScreen(device: DeviceInfo) {
   deviceStore.setActiveDevice(device)
   screen.connect(device.udid, {
     platform: device.platform,
-    provider: 'scrcpy-webcodecs',
+    provider: preferH264Stream ? 'scrcpy-webcodecs' : 'scrcpy-ffmpeg-mjpeg',
     maxFps: isElectron ? 30 : 30,
     maxSize: isElectron ? 1280 : 960,
     useNativeScrcpySurface: preferNativeScrcpySurface,

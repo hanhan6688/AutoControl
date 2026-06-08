@@ -72,6 +72,7 @@ const electronAPI = typeof window !== 'undefined' ? (window as any).electronAPI 
 const isElectron = Boolean(electronAPI?.isElectron)
 const electronScreenStreamConfig = electronAPI?.getScreenStreamConfig?.() ?? null
 const preferNativeScrcpySurface = Boolean(electronScreenStreamConfig?.preferNativeScrcpySurface)
+const preferH264Stream = !isElectron || electronScreenStreamConfig?.preferH264 === true
 
 // Keyboard shortcuts
 useKeyboardShortcuts([
@@ -407,7 +408,7 @@ function connectScreen(device: DeviceInfo | null | undefined) {
   latestScreenshot.value = null
   screen.connect(selected.udid, {
     platform: selected.platform,
-    provider: 'scrcpy-webcodecs',
+    provider: preferH264Stream ? 'scrcpy-webcodecs' : 'scrcpy-ffmpeg-mjpeg',
     maxFps: 30,
     maxSize: isElectron ? 1280 : 720,
     useNativeScrcpySurface: preferNativeScrcpySurface,

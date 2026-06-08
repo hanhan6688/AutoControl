@@ -8,7 +8,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
   platform: process.platform,
   getScreenStreamConfig: () => ({
-    preferH264: true,
+    // Electron's WebCodecs path is fast but some Android devices emit
+    // non-standard H.264 profiles that render as artifacts/garbled frames.
+    preferH264: false,
     maxFps: 30,
     maxSize: 1280,
     // Native scrcpy reparenting is still unstable in the default desktop flow.

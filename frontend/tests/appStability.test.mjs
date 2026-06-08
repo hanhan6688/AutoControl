@@ -63,8 +63,10 @@ test('device manager leaves native scrcpy embed mode opt-in inside Electron', ()
   assert.notEqual(connectScreenIndex, -1)
   assert.match(source, /const\s+isElectron\s*=/)
   assert.match(source, /const\s+preferNativeScrcpySurface\s*=/)
+  assert.match(source, /const\s+preferH264Stream\s*=/)
   assert.doesNotMatch(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
   assert.match(connectScreenSource, /useNativeScrcpySurface:\s*preferNativeScrcpySurface/)
+  assert.match(connectScreenSource, /provider:\s*preferH264Stream\s*\?\s*'scrcpy-webcodecs'\s*:\s*'scrcpy-ffmpeg-mjpeg'/)
   assert.match(connectScreenSource, /preferApiTouchControl:\s*isElectron/)
 })
 
@@ -90,8 +92,10 @@ test('test case manager leaves native scrcpy embed mode opt-in inside Electron',
   assert.notEqual(connectScreenIndex, -1)
   assert.match(source, /const\s+isElectron\s*=/)
   assert.match(source, /const\s+preferNativeScrcpySurface\s*=/)
+  assert.match(source, /const\s+preferH264Stream\s*=/)
   assert.doesNotMatch(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
   assert.match(connectScreenSource, /useNativeScrcpySurface:\s*preferNativeScrcpySurface/)
+  assert.match(connectScreenSource, /provider:\s*preferH264Stream\s*\?\s*'scrcpy-webcodecs'\s*:\s*'scrcpy-ffmpeg-mjpeg'/)
   assert.match(connectScreenSource, /preferApiTouchControl:\s*isElectron/)
 })
 
@@ -118,6 +122,7 @@ test('electron native scrcpy embed remains behind an explicit preload opt-in', (
 
   assert.match(source, /getScreenStreamConfig:\s*\(\)\s*=>\s*\(\{/)
   assert.match(source, /preferNativeScrcpySurface:\s*false/)
+  assert.match(source, /preferH264:\s*false/)
 })
 
 test('electron opens devtools in detached mode during development', () => {
