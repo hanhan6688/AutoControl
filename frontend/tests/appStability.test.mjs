@@ -54,7 +54,7 @@ test('screen stream releases h264 decoder when route canvas is replaced', () => 
   assert.match(setCanvasSource, /initH264Decoder\(\)/)
 })
 
-test('device manager requests native scrcpy embed mode inside Electron', () => {
+test('device manager leaves native scrcpy embed mode opt-in inside Electron', () => {
   const source = readSource('src/views/DeviceManager.vue')
   const connectScreenIndex = source.indexOf('function connectScreen')
   const autoConnectIndex = source.indexOf('function autoConnectActiveDevice')
@@ -62,8 +62,9 @@ test('device manager requests native scrcpy embed mode inside Electron', () => {
 
   assert.notEqual(connectScreenIndex, -1)
   assert.match(source, /const\s+isElectron\s*=/)
-  assert.doesNotMatch(connectScreenSource, /useExternalScrcpyWindow:\s*isElectron/)
-  assert.match(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
+  assert.match(source, /const\s+preferNativeScrcpySurface\s*=/)
+  assert.doesNotMatch(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
+  assert.match(connectScreenSource, /useNativeScrcpySurface:\s*preferNativeScrcpySurface/)
 })
 
 test('device manager delegates automation tab markup to a focused sidebar component', () => {
@@ -79,7 +80,7 @@ test('device manager delegates automation tab markup to a focused sidebar compon
   assert.match(sidebarSource, /自动化脚本/)
 })
 
-test('test case manager requests native scrcpy embed mode inside Electron', () => {
+test('test case manager leaves native scrcpy embed mode opt-in inside Electron', () => {
   const source = readSource('src/views/TestCaseManager.vue')
   const connectScreenIndex = source.indexOf('function connectScreen')
   const autoConnectIndex = source.indexOf('function autoConnectActiveDevice')
@@ -87,8 +88,9 @@ test('test case manager requests native scrcpy embed mode inside Electron', () =
 
   assert.notEqual(connectScreenIndex, -1)
   assert.match(source, /const\s+isElectron\s*=/)
-  assert.doesNotMatch(connectScreenSource, /useExternalScrcpyWindow:\s*isElectron/)
-  assert.match(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
+  assert.match(source, /const\s+preferNativeScrcpySurface\s*=/)
+  assert.doesNotMatch(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
+  assert.match(connectScreenSource, /useNativeScrcpySurface:\s*preferNativeScrcpySurface/)
 })
 
 test('test case manager leaves mapped raw h264 streams on the canvas path', () => {
@@ -101,14 +103,15 @@ test('test case manager leaves mapped raw h264 streams on the canvas path', () =
   assert.doesNotMatch(predicateSource, /provider\s*===\s*'scrcpy-h264'/)
 })
 
-test('electron native scrcpy embed avoids Direct3D as the default renderer', () => {
-  const source = readSource('../desktop/main.js')
-  const nativeStartIndex = source.indexOf("ipcMain.handle('scrcpy:native-start'")
-  const nativeResizeIndex = source.indexOf("ipcMain.handle('scrcpy:native-resize'")
-  const nativeStartSource = source.slice(nativeStartIndex, nativeResizeIndex)
+test('electron native scrcpy embed remains behind an explicit preload opt-in', () => {
+  const source = readSource('../desktop/preload.js')
 
-  assert.notEqual(nativeStartIndex, -1)
-  assert.match(nativeStartSource, /process\.env\.SCRCPY_NATIVE_RENDER_DRIVER/)
-  assert.match(nativeStartSource, /\|\|\s*'opengl'/)
-  assert.doesNotMatch(nativeStartSource, /\|\|\s*'direct3d'/)
+  assert.match(source, /getScreenStreamConfig:\s*\(\)\s*=>\s*\(\{/)
+  assert.match(source, /preferNativeScrcpySurface:\s*false/)
+})
+
+test('electron opens devtools in detached mode during development', () => {
+  const source = readSource('../desktop/main.js')
+
+  assert.match(source, /openDevTools\(\{\s*mode:\s*'detach'\s*\}\)/)
 })

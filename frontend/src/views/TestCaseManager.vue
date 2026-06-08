@@ -79,6 +79,8 @@ const deviceStore = useDeviceStore()
 const screen = inject<ScreenStreamHandle>('screenStream')!
 const electronAPI = typeof window !== 'undefined' ? (window as any).electronAPI : undefined
 const isElectron = Boolean(electronAPI?.isElectron)
+const electronScreenStreamConfig = electronAPI?.getScreenStreamConfig?.() ?? null
+const preferNativeScrcpySurface = Boolean(electronScreenStreamConfig?.preferNativeScrcpySurface)
 const isEmbeddedVideoStream = computed(() =>
   screen.state.value.provider === 'scrcpy-ffmpeg-fmp4' || screen.state.value.mimeType === 'video/mp4',
 )
@@ -727,7 +729,7 @@ function connectScreen(device: DeviceInfo) {
     provider: 'scrcpy-webcodecs',
     maxFps: isElectron ? 30 : 30,
     maxSize: isElectron ? 1280 : 960,
-    useNativeScrcpySurface: isElectron,
+    useNativeScrcpySurface: preferNativeScrcpySurface,
     wdaUrl: device.wda_url ?? undefined,
     control: false,  // 只投屏不控制，节省性能
   })

@@ -70,6 +70,8 @@ const terminal = useScriptTerminal()
 // Detect Electron mode — uses scrcpy window instead of embedded canvas
 const electronAPI = typeof window !== 'undefined' ? (window as any).electronAPI : undefined
 const isElectron = Boolean(electronAPI?.isElectron)
+const electronScreenStreamConfig = electronAPI?.getScreenStreamConfig?.() ?? null
+const preferNativeScrcpySurface = Boolean(electronScreenStreamConfig?.preferNativeScrcpySurface)
 
 // Keyboard shortcuts
 useKeyboardShortcuts([
@@ -408,7 +410,7 @@ function connectScreen(device: DeviceInfo | null | undefined) {
     provider: 'scrcpy-webcodecs',
     maxFps: 30,
     maxSize: isElectron ? 1280 : 720,
-    useNativeScrcpySurface: isElectron,
+    useNativeScrcpySurface: preferNativeScrcpySurface,
   })
 }
 

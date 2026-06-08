@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     preferH264: true,
     maxFps: 30,
     maxSize: 1280,
+    // Native scrcpy reparenting is still unstable in the default desktop flow.
+    preferNativeScrcpySurface: false,
   }),
   scrcpyStart: (udid, options) => ipcRenderer.invoke('scrcpy:start', udid, options),
   scrcpyStop: () => ipcRenderer.invoke('scrcpy:stop'),
