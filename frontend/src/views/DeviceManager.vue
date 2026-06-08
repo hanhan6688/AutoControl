@@ -72,7 +72,6 @@ const electronAPI = typeof window !== 'undefined' ? (window as any).electronAPI 
 const isElectron = Boolean(electronAPI?.isElectron)
 const electronScreenStreamConfig = electronAPI?.getScreenStreamConfig?.() ?? null
 const preferNativeScrcpySurface = Boolean(electronScreenStreamConfig?.preferNativeScrcpySurface)
-const preferH264Stream = !isElectron || electronScreenStreamConfig?.preferH264 === true
 
 // Keyboard shortcuts
 useKeyboardShortcuts([
@@ -408,7 +407,9 @@ function connectScreen(device: DeviceInfo | null | undefined) {
   latestScreenshot.value = null
   screen.connect(selected.udid, {
     platform: selected.platform,
-    provider: preferH264Stream ? 'scrcpy-webcodecs' : 'scrcpy-ffmpeg-mjpeg',
+    // Automation page prioritizes the low-latency scrcpy H.264 path.
+    // Electron can still route control via API while keeping the screen live.
+    provider: 'scrcpy-webcodecs',
     maxFps: 30,
     maxSize: isElectron ? 1280 : 720,
     useNativeScrcpySurface: preferNativeScrcpySurface,

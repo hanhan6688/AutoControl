@@ -54,7 +54,7 @@ test('screen stream releases h264 decoder when route canvas is replaced', () => 
   assert.match(setCanvasSource, /initH264Decoder\(\)/)
 })
 
-test('device manager leaves native scrcpy embed mode opt-in inside Electron', () => {
+test('device manager keeps automation screen on scrcpy-webcodecs while native embed stays opt-in', () => {
   const source = readSource('src/views/DeviceManager.vue')
   const connectScreenIndex = source.indexOf('function connectScreen')
   const autoConnectIndex = source.indexOf('function autoConnectActiveDevice')
@@ -63,10 +63,9 @@ test('device manager leaves native scrcpy embed mode opt-in inside Electron', ()
   assert.notEqual(connectScreenIndex, -1)
   assert.match(source, /const\s+isElectron\s*=/)
   assert.match(source, /const\s+preferNativeScrcpySurface\s*=/)
-  assert.match(source, /const\s+preferH264Stream\s*=/)
   assert.doesNotMatch(connectScreenSource, /useNativeScrcpySurface:\s*isElectron/)
   assert.match(connectScreenSource, /useNativeScrcpySurface:\s*preferNativeScrcpySurface/)
-  assert.match(connectScreenSource, /provider:\s*preferH264Stream\s*\?\s*'scrcpy-webcodecs'\s*:\s*'scrcpy-ffmpeg-mjpeg'/)
+  assert.match(connectScreenSource, /provider:\s*'scrcpy-webcodecs'/)
   assert.match(connectScreenSource, /preferApiTouchControl:\s*isElectron/)
 })
 
